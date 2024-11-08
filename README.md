@@ -248,7 +248,7 @@ y la curva roc AUC tuvo la siguiente grafica
 
 Se puede observar que el modelo distingue bien entre las clases, es decir que la tasa de verdaderos positivos y la tasa de falsos positivos se encuentra baja.
 
-Se concluye que este modelo tiene una mejor distincion entre las clases por lo tanto es el que mejor performance le da al negocio
+El modelo fue el LGTBM por que tiene una mejor distincion entre las clases por lo tanto es el que mejor performance le da al negocio
 
 Para comprender un poco mas sobre la importancia de las variables se calcula el feature importance para el modelo LGTBM, se puede observar en el siguiente grafico:
 
@@ -265,6 +265,16 @@ Las variables contact_unknown, month_aug, month_jul, campaign, month_may, y pout
 
 
 
+## Conclusiones
 
+El mejor modelo fue el LGTBM con un valor del ROC AUC de 0.93, indicando que el modelo es robusto y tiene un buen performance 
+
+El codigo se organiza a traves de funciones para que a facilite su automatizacion a traves de herramientas como airflow.
+
+## Recomendaciones
+
+Esta prueba llegaba hasta la face del modelado y evaluacion del modelo, se recomienda que cuando se vaya a poner en produccion se realice monitoreo de las metricas a lo largo del tiempo utilizando herramientas como mlflow.
+
+Ademas se debe crear un ambiente virtual y crear un archivo requirements.txt que permite empaquetar en contenedores docker el modelo y con esto crear un microservicio para que consuma datos a traves de peticiones http a traves de un api y arrojar precciones cuando se requiera
 
 
