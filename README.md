@@ -133,17 +133,137 @@ clf = LazyClassifier(verbose=0, ignore_warnings=True)
 
 # Ajustar los modelos
 models, results = clf.fit(X_train, X_test, y_train, y_test)
-
-Preprocesamiento de Datos: Limpieza de los datos, manejo de valores nulos, codificación de variables categóricas y escalado de características.
-
-Modelos de Clasificación: Entrenamiento de modelos de clasificación utilizando LGBMClassifier, SVC y RandomForestClassifier.
-
-Evaluación de Modelos: Comparación de modelos mediante métricas como accuracy, precision, recall, F1-score y roc AUC.
 ```
 obteniendo el siguiente resultado 
 ![image](https://github.com/user-attachments/assets/eccab630-08b9-4f32-886b-d58f52f8b387)
 
+
 Podemos observar que hay 3 modelos muestran un buen performance, estos se van a tomar como base para realizar el preprocesamiento de los datos y la optimización de hiperparametros
+
+Preprocesamiento de Datos: Limpieza de los datos, manejo de valores nulos, codificación de variables categóricas y escalado de características.
+
+```python
+from sklearn.model_selection import train_test_split
+
+def preprocess_data(df, target_column='y', test_size=0.3, random_state=42):
+    # Reemplazar los valores 'yes' por 1 y 'no' por 0 en la columna objetivo
+    df[target_column] = df[target_column].replace({'yes': 1, 'no': 0})
+    
+    # Crear una nueva columna 'age_group' con rangos etarios para la variable 'age'
+    df['age_group'] = pd.cut(df['age'], bins=[0, 18, 30, 45, 60, 100], 
+                             labels=['0-18', '19-30', '31-45', '46-60', '61+'])
+    
+    # Eliminar la columna original 'age'
+    df = df.drop(columns=['age'])
+    
+    # Separar las variables predictoras (X) y la variable objetivo (y)
+    X = df.drop(columns=[target_column])
+    y = df[target_column]
+    
+    # Seleccionar solo las columnas categóricas
+    categorical_columns = X.select_dtypes(include=['object', 'category']).columns
+    
+    # Aplicar One Hot Encoding solo a las columnas categóricas
+    X = pd.get_dummies(X, columns=categorical_columns, drop_first=True)
+    
+    # Dividir el dataset en entrenamiento y prueba
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=test_size, random_state=random_state)
+    
+    return X_train, X_test, y_train, y_test
+
+```
+Se organiza las edades por rangos etareos
+
+Modelos de Clasificación: Entrenamiento de modelos de clasificación utilizando LGBMClassifier y RandomForestClassifier.
+
+```python
+from skopt import BayesSearchCV
+from sklearn.svm import SVC
+import lightgbm as lgb
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.model_selection import train_test_split
+
+def optimize_model(model, param_space, X_train, y_train, n_iter=32, scoring='f1', cv=3, n_jobs=-1, random_state=42):
+    """
+    Función para optimizar un modelo utilizando optimización bayesiana.
+
+    model: el modelo de machine learning (SVC, LightGBM, RandomForest, etc.)
+    param_space: espacio de búsqueda para los hiperparámetros
+    X_train: conjunto de entrenamiento
+    y_train: etiquetas del conjunto de entrenamiento
+    n_iter: número de iteraciones para la optimización
+    scoring: métrica de evaluación
+    cv: número de pliegues en la validación cruzada
+    n_jobs: número de núcleos a usar para la optimización
+    random_state: semilla aleatoria
+
+    Returns: modelo optimizado y su mejor puntaje
+    """
+    # Configurar la búsqueda bayesiana de hiperparámetros
+    opt = BayesSearchCV(
+        model,
+        param_space,
+        n_iter=n_iter,             # número de iteraciones para la optimización
+        scoring=scoring,          # métrica de evaluación
+        cv=cv,                    # número de pliegues en la validación cruzada
+        random_state=random_state,
+        n_jobs=n_jobs              # utiliza todos los núcleos disponibles
+    )
+
+    # Ejecutar la optimización
+    opt.fit(X_train, y_train)
+    
+    # Imprimir los mejores parámetros y el puntaje
+    print("Best Parameters:", opt.best_params_)
+    print("Best Score:", opt.best_score_)
+    
+    return opt.best_estimator_
+```
+Se utiliza una optmizacion bayesiana para realizar el ajuste optimo de los hiperparametros, para esto se crea una funcion que ayude a probar los modelos de random forest y ligthbm.
+
+Evaluación de Modelos: Comparación de modelos mediante métricas como accuracy, precision, recall, F1-score y roc AUC. Los resultados fueron los siguientes:
+
+Para el modelo Random Forest se obtuvo:
+
+F1 Score en el conjunto de prueba: 0.9017988793866116
+
+Accuracy en el conjunto de prueba: 0.9017988793866116
+
+y la curva roc AUC tuvo el siguiente:
+
+![image](https://github.com/user-attachments/assets/7de28e82-9b6a-4515-9a18-23351ab8a9a3)
+
+Se puede observar que el modelo distingue bien entre las clases, es decir que la tasa de verdaderos positivos y la tasa de falsos positivos se encuentra baja. 
+
+Para el modelo LGBMClassifier se obtuvo:
+
+F1 Score en el conjunto de prueba: 0.9017988793866116
+
+Accuracy en el conjunto de prueba: 0.9065909761132409
+
+y la curva roc AUC tuvo la siguiente grafica 
+
+![image](https://github.com/user-attachments/assets/dcfb52ad-3dcb-4aba-881c-68061b2b5e14)
+
+
+Se puede observar que el modelo distingue bien entre las clases, es decir que la tasa de verdaderos positivos y la tasa de falsos positivos se encuentra baja.
+
+Se concluye que este modelo tiene una mejor distincion entre las clases por lo tanto es el que mejor performance le da al negocio
+
+Para comprender un poco mas sobre la importancia de las variables se calcula el feature importance para el modelo LGTBM, se puede observar en el siguiente grafico:
+
+![image](https://github.com/user-attachments/assets/5025c8da-b213-4e0d-ab73-6dfffbce7051)
+
+
+duration es la característica más importante por una diferencia considerable. Esto sugiere que el tiempo de duración de la interacción es el factor más determinante para el modelo.
+
+day y pdays también tienen una alta importancia, aunque mucho menor que duration. Esto indica que el momento de contacto (día y tiempo desde el último contacto) es relevante para la efectividad de la campaña.
+
+balance tiene una importancia intermedia, lo que indica que el saldo del cliente puede influir en el éxito de la campaña, pero no tanto como la duración. Un balance positivo podría estar relacionado con una mayor probabilidad de aceptación de productos financieros.
+
+Las variables contact_unknown, month_aug, month_jul, campaign, month_may, y poutcome_success también son importantes, aunque en menor medida. Esto sugiere que factores como el canal de contacto, el mes en el que se realiza el contacto y el éxito de campañas previas también influyen, pero de forma menos crítica en comparación con las primeras variables.
+
+
 
 
 
